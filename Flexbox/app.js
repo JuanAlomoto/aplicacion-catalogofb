@@ -19,13 +19,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const password = document.getElementById("password").value;
             const mensaje = document.getElementById("mensaje");
             try {
-                const response = await fetch("https://fakestoreapi.com/auth/login", {
+                const response = await fetch("http://127.0.0.1:8000/api/login", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        username,
+                        email:username,
                         password,
                     }),
                 });
@@ -35,9 +35,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 const data = await response.json();
-                localStorage.setItem("token", data.token);
+                localStorage.setItem("token", data.access_token);
                 mensaje.textContent = "Inicio de sesión exitoso";
                 mensaje.classList.add("text-green-500");
+                
 
                 setTimeout(() => {
                     window.location.href = "index.html"; // Redirigir a la página principal
@@ -68,7 +69,7 @@ async function cargarProductos() {
             throw new Error("Error en la respuesta de la API");
         }
 
-        const productos = await respuesta.json();
+        productos = await respuesta.json();
 
         if (productos.length === 0) {
             console.log("No hay productos disponibles.");
@@ -97,11 +98,16 @@ async function cargarCategorias() {
 }
 
 function filtrarProductos() {
-    let filtrados = Productos;
+    let filtrados = productos;
+    
 
     // Filtrar por categoría
-    if (categoriasSeleccionada !== "all") {
-        filtrados = filtrados.filter((p) => p.category === categoriasSeleccionada);
+    if (categoriaSeleccionada !== "all") {
+        filtrados = filtrados.filter((p) =>
+            Array.isArray(p.categorias)
+                ? p.categorias.includes(categoriaSeleccionada)
+                : p.categorias === categoriaSeleccionada
+        );
     }
 
     // Filtrar por texto de búsqueda
@@ -109,8 +115,8 @@ function filtrarProductos() {
     if (texto.trim() !== "") {
         filtrados = filtrados.filter(
             (p) =>
-                p.title.toLowerCase().includes(texto) ||
-                p.description.toLowerCase().includes(texto)
+                p.titulo.toLowerCase().includes(texto) ||
+                p.descripcion.toLowerCase().includes(texto)
         );
     }
 
@@ -210,3 +216,55 @@ document.addEventListener("DOMContentLoaded", () => {
     cargarProductos(); // Cargar los productos al cargar la página
     cargarCategorias(); // Cargar las categorías al cargar la página
 });
+
+if (localStorage.getItem("token")) {
+    // Si hay un token en el almacenamiento local, mostrar el botón de cerrar sesión
+    logoutButton.classList.remove("hidden"); // Remover la clase hidden
+}
+
+// Lógica para mostrar el botón "Crear producto" solo si el usuario es admin
+document.addEventListener("DOMContentLoaded", async () => {
+    const token = localStorage.getItem("token");
+    const crearBtnId = "crear-producto-btn";
+    // Elimina el botón si ya existe para evitar duplicados
+    const btnExistente = document.getElementById(crearBtnId);
+    if (btnExistente) btnExistente.remove();
+
+    if (token) {
+        try {
+            const response = await fetch("http://127.0.0.1:8000/api/me", {
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json"
+                }
+            });
+            if (!response.ok) throw new Error("No autorizado");
+            const user = await response.json();
+
+            // Verifica si el usuario tiene el rol admin (ajusta según tu backend, por ejemplo user.rol o user.role)
+            if (user.rol === "admin") {
+                // Crear y agregar el botón "Crear producto"
+                const crearBtn = document.createElement("button");
+                crearBtn.id = crearBtnId;
+                crearBtn.textContent = "Crear producto";
+                crearBtn.className = "btn btn-success ml-2"; // Bootstrap
+                crearBtn.addEventListener("click", () => {
+                    window.location.href = "crear.html";
+                });
+
+                // Puedes agregar el botón donde prefieras, aquí lo agrego al body al final
+                document.body.appendChild(crearBtn);
+            }
+        } catch (error) {
+            // Si hay error, no mostrar el botón
+            // Opcional: console.error("No autorizado o error al obtener usuario:", error);
+        }
+    }
+});
+
+if (logoutButton) {
+    logoutButton.addEventListener("click", () => {
+        localStorage.removeItem("token"); // Eliminar el token del almacenamiento local
+        window.location.href = "login.html"; // Redirigir a la página de inicio de sesión
+    });
+}

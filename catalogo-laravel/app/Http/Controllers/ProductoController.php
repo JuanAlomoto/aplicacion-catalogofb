@@ -27,23 +27,28 @@ class ProductoController extends Controller
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'titulo' => 'required|string|max:255',
-            'descripcion' => 'required|string',
-            'precio' => 'required|numeric|min:0',
-            'imagen' => 'nullable|string',
-            'categorias' => 'nullable|array',
-        ]);
+{
+    $validated = $request->validate([
+        'titulo' => 'required|string|max:255',
+        'descripcion' => 'required|string',
+        'precio' => 'required|numeric|min:0',
+        'imagen' => 'nullable|string',
+        'stock' => 'required|numeric|min:0',
+        'categorias' => 'nullable|array',
+        'categorias.*' => 'exists:categorias,id', // Valida que cada ID exista
+    ]);
+
+    // Excluir categorias del create ya que no es un campo del modelo
+    $productData = collect($validated)->except('categorias')->toArray();
     
-        $producto = Producto::create($validated);
+    $producto = Producto::create($productData);
 
-        if ($request->has('categorias')) {
-            $producto->categorias()->sync($request->categorias);
-        }
-
-        return response()->json($producto, 201); // retorna el producto creado
+    if (!empty($validated['categorias'] ?? [])) {
+        $producto->categorias()->sync($validated['categorias']);
     }
+
+    return response()->json($producto->load('categorias'), 201);
+}
 
     /**
      * Display the specified resource.
@@ -72,7 +77,9 @@ class ProductoController extends Controller
             'descripcion' => 'sometimes|required|string',
             'precio' => 'sometimes|required|numeric|min:0',
             'imagen' => 'nullable|string',
+            'stock' => 'sometimes|required|numeric|min:0',
             'categorias' => 'nullable|array',
+            'categorias.*' => 'exists:categorias,id',
         ]);
 
         $producto->update($validated);
@@ -80,7 +87,12 @@ class ProductoController extends Controller
         if ($request->has('categorias')) {
             $producto->categorias()->sync($request->categorias);
         }
-        return response()->json($producto, 200); // actualiza el producto y lo devuelve en formato JSON
+        $producto = Producto::with('categorias')->find($producto->id);
+
+        return response()->json([
+            'message' => 'Producto actualizado exitosamente.',
+            'producto' => $producto,
+        ], 200);
     }
 
     /**

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>actualizar Producto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <header class="bg-white shadow py-6 mb-8">
+        <div class="max-w-3xl mx-auto px-6 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Actualizar Producto</h1>
+            <a href="index.html" class="text-blue-600 hover:underline font-medium">Volver</a>
+        </div>
+    </header>
+    <main class="flex-1 flex items-center justify-center">
+        <form id="crearProductoForm" class="bg-white p-8 rounded shadow-md w-full max-w-lg space-y-6">
+            <div>
+                <label for="titulo" class="block font-medium mb-1">Título</label>
+                <input type="text" id="titulo" name="titulo" class="w-full border border-blue-400 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            </div>
+            <div>
+                <label for="descripcion" class="block font-medium mb-1">Descripción</label>
+                <input type="text" id="descripcion" name="descripcion" class="w-full border border-blue-400 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            </div>
+            <div>
+                <label for="precio" class="block font-medium mb-1">Precio</label>
+                <input type="number" id="precio" name="precio" step="0.01" min="0" class="w-full border border-blue-400 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            </div>
+            <div>
+                <label for="imagen" class="block font-medium mb-1">Imagen</label>
+                <input type="file" id="imagen" name="imagen" accept="image/*" class="w-full border border-blue-400 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            </div>
+            <div>
+                <label for="stock" class="block font-medium mb-1">Stock</label>
+                <input type="number" id="stock" name="stock" min="0" class="w-full border border-blue-400 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            </div>
+            <div>
+                <label for="categoria" class="block font-medium mb-1">Categoría</label>
+                <select id="categoria" name="categoria" class="w-full border border-blue-400 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                    <option value="">Selecciona una categoría</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors">Actualizar Producto</button>
+            <div id="mensaje" class="text-center mt-2"></div>
+        </form>
+    </main>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+    <script>
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBEyeZz1hEt_Rsfayq1T0Xf5QxgxmivgxA",
+            authDomain: "proyecto-app-a0e32.firebaseapp.com",
+            projectId: "proyecto-app-a0e32",
+            storageBucket: "proyecto-app-a0e32.firebasestorage.app",
+            messagingSenderId: "323914021487",
+            appId: "1:323914021487:web:160df0e7923dd2ecb66b9a",
+            measurementId: "G-0WKQ49QQ15"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const storage = firebase.storage();
+
+        // Verificar si el usuario es admin antes de permitir actualizar productos
+        document.addEventListener('DOMContentLoaded', async function() {
+            const token = localStorage.getItem('token');
+            const mensaje = document.getElementById('mensaje');
+            const form = document.getElementById('crearProductoForm');
+
+            if (!token) {
+                mensaje.textContent = "Debes iniciar sesión como administrador para actualizar productos.";
+                mensaje.className = "text-red-500";
+                form.style.display = "none";
+                return;
+            }
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/me', {
+                    headers: {
+                        "Authorization": "Bearer " + token,
+                        "Content-Type": "application/json"
+                    }
+                });
+                if (!res.ok) throw new Error("No autorizado");
+                const user = await res.json();
+                if (user.rol !== "admin" && user.role !== "admin") {
+                    mensaje.textContent = "Solo los administradores pueden actualizar productos.";
+                    mensaje.className = "text-red-500";
+                    form.style.display = "none";
+                    return;
+                }
+            } catch (e) {
+                mensaje.textContent = "Error de autenticación. Intenta iniciar sesión nuevamente.";
+                mensaje.className = "text-red-500";
+                form.style.display = "none";
+                return;
+            }
+
+            // Cargar categorías solo si es admin
+            const select = document.getElementById('categoria');
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/categorias');
+                const categorias = await res.json();
+                categorias.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.id || cat.nombre || cat;
+                    option.textContent = cat.nombre || cat;
+                    select.appendChild(option);
+                });
+            } catch (e) {
+                select.innerHTML = '<option value="">No se pudieron cargar las categorías</option>';
+            }
+
+            // Cargar datos del producto en los inputs
+            const id = getProductIdFromUrl();
+            if (!id) return;
+
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/productos/${id}`);
+                if (!res.ok) throw new Error("No se pudo cargar el producto");
+                const producto = await res.json();
+
+                document.getElementById('titulo').value = producto.titulo || '';
+                document.getElementById('descripcion').value = producto.descripcion || '';
+                document.getElementById('precio').value = producto.precio || '';
+                document.getElementById('stock').value = producto.stock || '';
+                // Seleccionar la categoría
+                setTimeout(() => {
+                    document.getElementById('categoria').value = producto.categorias && producto.categorias.length > 0
+                        ? producto.categorias[0].id || producto.categorias[0]
+                        : '';
+                }, 500); // Espera a que las categorías se carguen
+                // No se puede pre-cargar la imagen por seguridad del navegador
+            } catch (e) {
+                mensaje.textContent = "Error al cargar el producto";
+                mensaje.className = "text-red-500";
+            }
+        });
+
+        // Obtener el ID del producto desde la URL (?id=123)
+        function getProductIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id');
+        }
+
+        // Lógica para actualizar el producto
+        document.getElementById('crearProductoForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const token = localStorage.getItem('token');
+            if (!token) {
+                document.getElementById('mensaje').textContent = "Debes iniciar sesión.";
+                document.getElementById('mensaje').className = "text-red-500";
+                return;
+            }
+
+            const id = getProductIdFromUrl();
+            if (!id) {
+                document.getElementById('mensaje').textContent = "ID de producto no encontrado en la URL.";
+                document.getElementById('mensaje').className = "text-red-500";
+                return;
+            }
+
+            // Subir imagen solo si el usuario seleccionó una nueva
+            const imagenInput = document.getElementById('imagen');
+            const archivo = imagenInput.files[0];
+            let urlImagen = null;
+
+            try {
+                if (archivo) {
+                    const storageRef = storage.ref(`imagenes proyecto/${Date.now()}_${archivo.name}`);
+                    await storageRef.put(archivo);
+                    urlImagen = await storageRef.getDownloadURL();
+                }
+
+                // Obtener los datos del formulario
+                const data = {
+                    titulo: document.getElementById('titulo').value,
+                    descripcion: document.getElementById('descripcion').value,
+                    precio: parseFloat(document.getElementById('precio').value),
+                    stock: parseInt(document.getElementById('stock').value, 10),
+                    categorias: [parseInt(document.getElementById('categoria').value, 10)]
+                };
+                if (urlImagen) {
+                    data.imagen = urlImagen;
+                }
+
+                const response = await fetch(`http://127.0.0.1:8000/api/productos/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Respuesta del backend:', errorText);
+                    document.getElementById('mensaje').textContent = "Error al actualizar el producto: " + errorText;
+                    document.getElementById('mensaje').className = "text-red-500";
+                    return;
+                }
+
+                document.getElementById('mensaje').textContent = "Producto actualizado correctamente";
+                document.getElementById('mensaje').className = "text-green-500";
+                // Opcional: Redirigir o limpiar el formulario
+            } catch (error) {
+                document.getElementById('mensaje').textContent = "Error al actualizar el producto";
+                console.error(error);
+                document.getElementById('mensaje').className = "text-red-500";
+            }
+        });
+    </script>
+</body>
+</html>

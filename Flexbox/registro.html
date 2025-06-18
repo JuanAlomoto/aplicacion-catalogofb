@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <form
+      id="registerForm"
+      class="bg-white shadow-md rounded px-8 py-6 w-full max-w-sm"
+    >
+      <h2 class="text-2xl font-bold mb-4 text-center text-blue-600">
+        Registro
+      </h2>
+
+      <label class="block mb-2 text-sm font-medium">Nombre</label>
+      <input
+        type="text"
+        id="name"
+        required
+        class="w-full px-3 py-2 border rounded mb-4"
+      />
+
+      <label class="block mb-2 text-sm font-medium">Correo electrónico</label>
+      <input
+        type="email"
+        id="email"
+        required
+        class="w-full px-3 py-2 border rounded mb-4"
+      />
+
+      <label class="block mb-2 text-sm font-medium">Contraseña</label>
+      <input
+        type="password"
+        id="password"
+        required
+        class="w-full px-3 py-2 border rounded mb-4"
+      />
+
+      <label class="block mb-2 text-sm font-medium">Confirmar contraseña</label>
+      <input
+        type="password"
+        id="password_confirmation"
+        required
+        class="w-full px-3 py-2 border rounded mb-4"
+      />
+
+      <button
+        type="submit"
+        class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded"
+      >
+        Registrarse
+      </button>
+
+      <p id="mensaje" class="text-center mt-4 text-sm text-gray-600"></p>
+    </form>
+
+    <script>
+      document.getElementById("registerForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const name = document.getElementById("name").value;
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        const password_confirmation = document.getElementById("password_confirmation").value;
+        const mensaje = document.getElementById("mensaje");
+
+        if (password !== password_confirmation) {
+          mensaje.textContent = "Las contraseñas no coinciden.";
+          mensaje.className = "text-red-500 text-center mt-4 text-sm";
+          return;
+        }
+
+        try {
+          const response = await fetch("http://127.0.0.1:8000/api/register", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name,
+              email,
+              password,
+              password_confirmation,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            mensaje.textContent = "Registro exitoso. Ahora puedes iniciar sesión.";
+            mensaje.className = "text-green-500 text-center mt-4 text-sm";
+            setTimeout(() => {
+              window.location.href = "login.html";
+            }, 2000);
+          } else {
+            mensaje.textContent = data.message || "Error en el registro. Verifica los datos.";
+            mensaje.className = "text-red-500 text-center mt-4 text-sm";
+          }
+        } catch (error) {
+          mensaje.textContent = "Error en el registro.";
+          mensaje.className = "text-red-500 text-center mt-4 text-sm";
+        }
+      });
+    </script>
+  </body>
+</html>

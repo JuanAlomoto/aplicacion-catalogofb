@@ -64,5 +64,21 @@ class AuthController extends Controller
         // Retornar una respuesta exitosa
         return response()->json(['message' => 'Sesión cerrada correctamente'], 200);
     }
+
+   public function index()
+    {
+        // Verifica que el usuario sea admin
+        if (auth()->user()->rol !== 'admin') {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+ 
+        // Retorna todos los usuarios
+        return User::all();
+    }
+public function me(Request $request)
+    {
+        return response()->json($request->user());
+    }
+
 }
  
